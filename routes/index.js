@@ -1,17 +1,18 @@
 var express = require('express');
 var router = express.Router();
-
+const fs = require("fs");
 const userModel = require('./users')
 const videoModel = require('./video')
 const upload = require('./multer')
-
 var passport = require('passport')
 var localStrategy = require('passport-local')
 passport.use(new localStrategy(userModel.authenticate()))
 
 
-router.get('/', isloggedIn, function (req, res, next) {
-  res.render('index', { title: 'Express' });
+router.get('/', isloggedIn, async function (req, res, next) {
+  const user = await userModel.findOne({username:req.session.passport.user}) 
+  const videos = await videoModel.find()
+  res.render('index', { title: 'Express', videos, user });
 });
 
 router.get('/login', (req, res, next) => {
@@ -22,8 +23,10 @@ router.get('/register', (req, res, next) => {
   res.render('register')
 })
 
-router.get('/currentVideo', isloggedIn, function (req, res, next) {
-  res.render('currentVideo')
+router.get('/currentVideo/:id', isloggedIn, async function (req, res, next) {
+  const videos = await videoModel.findById(req.params.id)
+  console.log(videos)
+  res.render('currentVideo',{videos})
 })
 
 router.get('/upload', isloggedIn, (req, res, next) => {
@@ -76,12 +79,19 @@ router.get('/logout', (req, res, next) => {
 router.post('/upload', isloggedIn, upload.single('video_file'), async (req, res, next) => {
   const newvideo = await videoModel.create({
     media: req.file.filename,
-    user: req.user._id
+    user: req.user._id,
+    title: req.body.title,
+    description:req.body.description
   })
   res.send(newvideo)
   console.log(newvideo)
 })
 
+
+router.get('/stream/:idfile',isloggedIn, async (req, res, next) => {
+   fs.createReadStream(`./public/video/${req.params.idfile}`).pipe(res)
+  
+})
 
 
 
