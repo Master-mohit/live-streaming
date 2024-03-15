@@ -5,7 +5,8 @@ const userModel = require('./users')
 const videoModel = require('./video')
 const upload = require('./multer')
 var passport = require('passport')
-var localStrategy = require('passport-local')
+var localStrategy = require('passport-local');
+const e = require('express');
 passport.use(new localStrategy(userModel.authenticate()))
 
 
@@ -89,7 +90,31 @@ router.post('/upload', isloggedIn, upload.single('video_file'), async (req, res,
 
 
 router.get('/stream/:idfile',isloggedIn, async (req, res, next) => {
-   fs.createReadStream(`./public/video/${req.params.idfile}`).pipe(res)
+   const range = req.headers.range
+   const parts = range.replace("bytes=","").split("-")
+   const start = parseInt(parts[ 0 ], 10)
+   let chunksize = 1024 * 1024 * 4
+   let end = start + chunksize - 1
+
+   const file = fs.statSync(`./public/video/${req.params.idfile}`)
+   const filesize = file.size
+
+   if(end>=filesize){
+    end = filesize-1
+    chunksize = start - end + 1
+   }
+   
+   const head = {
+    "Content-Range": `bytes ${start}-${end}/${filesize}`,
+    "Accept-Ranges": "bytes",
+    "Content-Length": chunksize,
+    "Content-Type": "video/mp4",
+   };
+   res.writeHead(206, head)
+   fs.createReadStream(`./public/video/${req.params.idfile}`,{
+   start, end
+   }).pipe(res)
+
   
 })
 
